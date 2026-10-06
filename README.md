@@ -97,6 +97,14 @@
 
 ## Planning Loop
 
+If `search_listings` returns an empty list, put a message in
+`session["error"]` naming what the user could change, and return the session
+without calling `suggest_outfit`. Otherwise take the first result, put it in
+`session["selected_item"]`, and continue to `suggest_outfit` and then
+`create_fit_card`.
+
+— `agent.py::run_agent`
+
 <!-- Your branch rule, stated as a rule — the condition AND both paths — plus
      the file and function that holds it.
 
