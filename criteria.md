@@ -24,10 +24,11 @@ data earns credit; *"80% seemed reasonable"* does not.
 Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
-**Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+**Why this target:** This path runs my keyword matching and then two model
+calls, and a model does not give the same answer twice. I am checking that what
+comes out actually matches what was asked for, and over five tries I expect four
+of them to get all the way through. Asking for five of five would be betting
+that the model never varies, which is not how it works.
 
 ---
 
@@ -36,14 +37,10 @@ tool calls and returns a fit card — in at least 4 of 5 tries.
 Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
-**Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
-This path runs my keyword matching and then two model
-calls, and a model does not give the same answer twice. I am checking that what
-comes out actually matches what was asked for, and over five tries I expect four
-of them to get all the way through. Asking for five of five would be betting
-that the model never varies, which is not how it works.
+**Why this target:** If the item is not in the data, there is no point spending
+a model call on it. The check is a plain `if not results:` in my own code, with
+no model involved, so it gives the same answer every time. That is why I can ask
+for five of five here when I could not for criterion 1.
 
 ---
 
