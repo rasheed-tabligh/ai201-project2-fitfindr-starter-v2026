@@ -128,10 +128,80 @@ without calling `suggest_outfit`. Otherwise take the first result, put it in
 
 ## Sample Run
 
-<!-- Two things go here.
+## Sample Run
 
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
+### Full query through the loop
+
+`python agent.py`, matching path:
+
+```
+[1] parse_query
+      in:  looking for a vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] search_listings (via MCP)
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, …
+      →    10 match(es)
+[3] select_item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[4] suggest_outfit
+      →    10 wardrobe item(s)
+[5] create_fit_card
+
+  found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+  fit card: Scored this butterfly baby tee for just $18.0 on depop and I am
+            officially obsessed. I'm leaning into total 2000s off-duty energy
+            today by pairing it with my baggiest dark-wash jeans and a beat-up
+            denim jacket. Such a cute little throwback piece!
+```
+
+Impossible query, same command:
+
+```
+[7] search_listings (via MCP)
+      out: [] (empty)
+      →    0 match(es)
+[8] branch
+      →    search returned []: stopping before suggest_outfit
+
+  stopped: Nothing in the listings matched description 'designer ballgown',
+  size XXS, under $5.
+  Things to change: try broader words — 'jacket' finds more than 'cropped
+  corduroy jacket'; drop the size, or try a neighbouring one; raise the price
+  ceiling above $5.
+  fit_card is None — it should still be None here
+```
+
+### Per-tool tests
+
+```
+$ python -c "from tools import search_listings; print([l['title'] for l in search_listings('graphic tee', max_price=30)])"
+['Y2K Baby Tee — Butterfly Print', 'Graphic Tee — 2003 Tour Bootleg Style', 'Mesh Long-Sleeve Top — Black', 'Vintage Band Tee — Faded Grey', 'Low-Rise Cargo Pants — Khaki', 'Vintage Graphic Hoodie — Faded Black']
+```
+
+```
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[1], get_example_wardrobe()))"
+<<< Here are two thrift-fashion styling options built around your new Y2K baby tee, using only the pieces currently in your wardrobe:
+
+### Outfit 1: 2000s Streetwear Contrast
+Pair the ultra-feminine, fitted energy of the butterfly tee with something structured and baggy for that classic Y2K off-duty look. 
+* **Top:** The new Y2K Baby Tee — Butterfly Print
+* **Bottoms:** Baggy straight-leg jeans, dark wash
+* **Outerwear:** Vintage black denim jacket (worn open to show off the graphic)
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
+
+### Outfit 2: Grunge-Meets-Y2K Edge
+Play up the vintage, nostalgic vibe of the tee by contrasting it with tougher, utilitarian pieces from your closet.
+* **Top:** The new Y2K Baby Tee — Butterfly Print
+* **Bottoms:** Wide-leg khaki trousers
+* **Shoes:** Black combat boots
+* **Accessories:** Brown leather belt (to define the waist against the trousers) and Black crossbody bag >>>
+```
+
+```
+$ python -c "from tools import create_fit_card; print(create_fit_card('', {}))"
+No outfit suggestion was available, so there's no caption to write.
+```
 
 **One full query**
 
