@@ -39,7 +39,14 @@
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
+FitFindr takes a plain-language request like "vintage graphic tee under $30"
+and turns it into a styled outfit and a caption. It pulls a description, a size
+and a price ceiling out of what you typed, searches 40 thrift listings for
+keyword matches inside that budget and size, and picks the best one. It then
+asks a model to build one or two outfits pairing that item with pieces already
+in your wardrobe, and writes a short caption naming the item's price and the
+platform it is listed on. If nothing in the listings matches, it stops before
+spending a model call and tells you which part of your query to loosen.
 
 
 
@@ -231,24 +238,26 @@ $ python -c "from tools import create_fit_card; ..."
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
+**1. Deciding what `suggest_outfit` does with an empty wardrobe.** The docstring
+in the starter said to "return general styling advice" and left the decision to
+me. I asked Claude whether that was enough to write a spec from, and it pointed
+out that nobody could check it, because there is no way to tell whether a given
+answer counts as general styling advice. I replaced it with something specific:
+when the wardrobe is empty the tool returns advice about the item itself, how it
+should fit and how to style its colours, plus one or two generic pairing ideas
+such as plain jeans or white sneakers, and it never claims the user already owns
+a piece. That sentence went into my Tool Inventory and then into the prompt the
+tool sends.
 
-     "I used Claude to help me code" is not enough.
-
-     "I gave Claude my search_listings spec. It returned None on no match
-     instead of an empty list, so I changed it" is the level we want. -->
-
-**Moment 1**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
-
-**Moment 2**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+**2. Checking the search results instead of trusting them.** I ran
+`search_listings('graphic tee', max_price=30)` and the six titles that came back
+all looked like tops, so the search looked correct. I asked Claude to check the
+`category` field on each one rather than reading the titles, and Low-Rise Cargo
+Pants came back as `bottoms`. It had scored well because the words in its
+listing overlapped with my query, and my search never looks at `category` at
+all. I left it in place on purpose. Criterion 5 is the one that tests for this,
+and unit 4 is where I am supposed to find out whether it holds, so fixing it now
+would have removed the thing I wrote the criterion to catch.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
