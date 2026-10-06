@@ -59,24 +59,39 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the 40 thrift listings by keywords, size and price,
+  and returns the best keyword matches first.
+- **Inputs:** `description` (str), `size` (str or None), `max_price` (float or None)
+- **Returns:** A list of listing dicts, best match first, at most
+  `config.SEARCH_RESULT_LIMIT` of them. Each dict has `id`, `title`,
+  `description`, `category`, `style_tags` (list), `size`, `condition`,
+  `price` (float), `colors` (list), `brand` (str or None), `platform`.
+- **When it has nothing:** An empty list `[]`. Not None, not an exception.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model to suggest one or two outfits that pair a
+  thrifted listing with pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict, a listing), `wardrobe` (dict with an `items`
+  key holding a list of wardrobe item dicts)
+- **Returns:** A non-empty string naming one or two outfits, each referring to
+  specific pieces from `wardrobe['items']` by name.
+- **When it has nothing:** When `wardrobe['items']` is empty, returns a string
+  with advice about the item itself (fit, how to style its colours) plus
+  generic pairing ideas such as plain jeans or white sneakers. It never claims
+  the user already owns a piece. It never returns "" and never raises.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model to write a short caption someone would post
+  about the find.
+- **Inputs:** `outfit` (str, the output of `suggest_outfit`), `new_item`
+  (dict, a listing)
+- **Returns:** A two to four sentence caption that mentions the item, its price
+  and its platform once each. The wording varies between runs by design.
+- **When it has nothing:** When `outfit` is empty or whitespace only, returns
+  the fixed string "No outfit suggestion was available, so there's no caption
+  to write." No model call is made.
 
 ---
 
