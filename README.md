@@ -112,28 +112,18 @@ without calling `suggest_outfit`. Otherwise take the first result, put it in
 
 — `agent.py::run_agent`
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
+**How the query is parsed:** With regex, in `agent.py::parse_query`. `_PRICE_RE`,
+`_SIZE_RE` and `_BARE_SIZE_RE` pull a price ceiling and a size out of the text,
+and whatever is left becomes the description. No model call, so the same query
+parses the same way every time.
 
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
-**Branch rule:**
-
-**Where it lives:** `agent.py::run_agent`
-
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
-
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` to `parsed` to `search_results` to
+`selected_item` to `outfit_suggestion` to `fit_card`, in that order. Each tool
+reads its input back out of the session rather than taking it straight from the
+previous call. When the run ends early, `error` is set instead and everything
+after it stays `None`.
 
 ---
-
-## Sample Run
 
 ## Sample Run
 
@@ -187,7 +177,7 @@ $ python -c "from tools import search_listings; print([l['title'] for l in searc
 
 ```
 $ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[1], get_example_wardrobe()))"
-<<< Here are two thrift-fashion styling options built around your new Y2K baby tee, using only the pieces currently in your wardrobe:
+Here are two thrift-fashion styling options built around your new Y2K baby tee, using only the pieces currently in your wardrobe:
 
 ### Outfit 1: 2000s Streetwear Contrast
 Pair the ultra-feminine, fitted energy of the butterfly tee with something structured and baggy for that classic Y2K off-duty look. 
@@ -202,7 +192,7 @@ Play up the vintage, nostalgic vibe of the tee by contrasting it with tougher, u
 * **Top:** The new Y2K Baby Tee — Butterfly Print
 * **Bottoms:** Wide-leg khaki trousers
 * **Shoes:** Black combat boots
-* **Accessories:** Brown leather belt (to define the waist against the trousers) and Black crossbody bag >>>
+* **Accessories:** Brown leather belt (to define the waist against the trousers) and Black crossbody bag
 ```
 
 ```
@@ -258,6 +248,17 @@ listing overlapped with my query, and my search never looks at `category` at
 all. I left it in place on purpose. Criterion 5 is the one that tests for this,
 and unit 4 is where I am supposed to find out whether it holds, so fixing it now
 would have removed the thing I wrote the criterion to catch.
+
+**3. Reading my own file before pasting into it.** I had code from class for
+wiring `search_listings` through MCP, and I pasted it into `run_agent`. It broke
+the file: an unclosed parenthesis on a `trace.step` call, a duplicated import,
+and three competing search calls where `session["search_results"]` was set from
+one of them and `results` from another. I asked Claude to read `agent.py` and
+tell me what was actually there, and the answer was that the starter already
+shipped a `_search()` function with `call_tool("search_listings", ...)` inside
+it and a direct-call fallback. The MCP wiring Milestone 1 asked for was already
+written. I had been pasting a third copy of a call that existed twice. I reverted
+`run_agent` to just `results = _search(parsed)` and the file compiled again.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
@@ -480,22 +481,7 @@ Two causes, two different instructions. One tells the user to fix their key, the
 other tells them to wait. All four stop cleanly, keep the search results, and
 print a sentence rather than a stack trace, so none of them needed a new handler.
 
-**Happy path**
 
-```
-
-```
-
-**Empty search**
-
-```
-
-```
-
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
 
 
 
@@ -503,41 +489,113 @@ full. -->
 
 ## The Improvement
 
-<!-- What you changed, why your diagnosis pointed at it, and the after-run in
-     the same table format. One change, measured properly.
+**What I changed.** `tools.py::search_listings` now splits the listing's fields
+into two groups before scoring. Strong fields are title, category and
+style_tags. Weak fields are description, colors and brand. A listing qualifies
+only if the query shares at least one keyword with its strong fields; a listing
+whose only matches are in weak fields is dropped. The score is still the size of
+the union of strong and weak matches, so weak fields keep helping the ranking,
+they just cannot get a listing into the results on their own.
 
-     `python run_eval.py --label after` -->
-
-**What I changed:**
-
-**Which failure it was meant to fix:**
+**Why I picked it.** My only miss was criterion 5, and the diagnosis named this
+exact mechanism: the old scorer pooled every field into one bag of words, so
+"Great for layering with a long tee" in the cargo pants description counted the
+same as "tee" in a real tee's title. Splitting strong from weak is the smallest
+change that addresses that sentence.
 
 ### Run Log — After
 
+Produced by `run_eval.py::main`, same seven scenarios, five tries each, caching
+off. Full output in `results/run_2026-10-07_2206_after.md`. 60 model calls.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before `suggest_outfit` | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. `selected_item` id reaches `suggest_outfit` | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card names the price and the platform | 5 listings | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. `graphic tee` returns only `tops` | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Did it help, and how do I know:**
+### Did it help?
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
+Yes. Criterion 5 went from 0 of 5 to 5 of 5. The other four criteria did not
+move, which is what I wanted: the change was supposed to fix one thing without
+disturbing anything else.
 
+The query "graphic tee" before and after:
 
+```
+BEFORE — 6 results                      AFTER — 4 results
+tops     Y2K Baby Tee                   tops  Y2K Baby Tee
+tops     Graphic Tee — 2003 Tour        tops  Graphic Tee — 2003 Tour
+tops     Mesh Long-Sleeve Top           tops  Vintage Band Tee
+tops     Vintage Band Tee               tops  Vintage Graphic Hoodie
+bottoms  Low-Rise Cargo Pants  <-- miss
+tops     Vintage Graphic Hoodie
+```
+
+Criteria 1 to 4 were unaffected because every one of their scenarios still
+selects the same top-1 listing as before. I checked all 30 select-and-style
+pairs in the after run: zero mismatches, same as before.
+
+**The trade-off, stated plainly.** This buys precision with recall. Result
+counts dropped across the board: "graphic tee" 6 to 4, "oversized flannel shirt"
+7 to 5, "90s track jacket" 10 to 9. `Mesh Long-Sleeve Top` is a legitimate top
+that no longer appears for "graphic tee", because its only match was in its
+description. I accepted that because my criterion is about what comes back being
+correct, not about how much comes back.
 
 ---
 
 ## What's Still Broken
 
-<!-- For each criterion still missed: what you'd do, and why you stopped where
-     you did. "I ran out of time" is fine if it's true. Pretending nothing is
-     left is not. -->
+**1. The fix is narrower than it looks.** It removes description-only matches.
+It does not fix wrong-category matches in general. The query "vintage graphic
+tee under $30" still returns a 90s silk slip dress and a braided leather belt,
+because both have "vintage" in their `style_tags`, which is a strong field. My
+criterion 5 only names the bare "graphic tee" query, so it passes while the
+underlying problem is only partly solved. What I would do: infer a category from
+the query and filter on it, rather than relying on which field a word appeared
+in. I stopped here because this unit allows one change and I had already spent
+it, and because changing the criterion after seeing the result would not be
+honest.
 
+**2. Nothing in my criteria measures recall.** All five criteria ask whether
+what comes back is correct. None asks whether anything useful was left out. That
+is how a precision fix could pass every criterion while quietly making the
+search worse, and I would not have noticed from the run log alone. I caught the
+dropped result counts by comparing the two runs by hand. Next time I would write
+one criterion about a minimum number of results for a query I know the data can
+answer.
 
+**3. The MCP fallback hides its own failures.** `agent.py::_search` wraps the
+MCP call in `except Exception` and silently falls back to calling
+`search_listings` directly. The trace still prints "search_listings (via MCP)"
+either way, so if MCP broke mid-run my trace would say it ran when it did not. I
+confirmed MCP really is being used by calling `mcp_client.call_tool` on its own
+and getting results back, but the trace itself cannot tell the two paths apart.
+The fix is to have `_search` report which path it took. I ran out of time.
+
+---
+
+## The MCP move
+
+I moved `search_listings` onto MCP. `mcp_server.py` registers it with FastMCP,
+typed as `description: str`, `size: str | None`, `max_price: float | None`, and
+a description written for an agent that will never see my implementation.
+`agent.py::_search` calls it through `mcp_client.call_tool` and falls back to a
+direct call if the server cannot be reached. The other two tools are unchanged.
+
+Nothing behaved differently after the move. The same query returned the same
+listings in the same order, which is the result I wanted, because
+`search_listings` is pure Python with no model in it.
+
+One thing the move changed that is not code: writing the tool description forced
+me to be accurate about behaviour I had never written down. My first draft said
+results come back "cheaper first among equal matches". They do not. The sort is
+stable with `reverse=True`, so listings with equal scores keep their original
+catalog order. I only caught it because a published description is read by
+someone who cannot check the source.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 

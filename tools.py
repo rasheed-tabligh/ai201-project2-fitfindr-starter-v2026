@@ -111,18 +111,27 @@ def search_listings(
     query_words = _keywords(description)
     scored = []
     for listing in listings:
-        parts = [
+        # Strong fields say what the listing IS; weak fields often name what it
+        # pairs with ("Great for layering with a long tee" put cargo pants in
+        # the results for "graphic tee"). A listing must match on a strong
+        # field to qualify; weak matches only improve its rank.
+        strong_parts = [
             listing["title"],
-            listing["description"],
             listing["category"],
             *listing["style_tags"],
+        ]
+        weak_parts = [
+            listing["description"],
             *listing["colors"],
         ]
         if listing["brand"] is not None:
-            parts.append(listing["brand"])
-        score = len(query_words & _keywords(" ".join(parts)))
-        if score > 0:
-            scored.append((score, listing))
+            weak_parts.append(listing["brand"])
+        strong_matches = query_words & _keywords(" ".join(strong_parts))
+        if not strong_matches:
+            continue
+        weak_matches = query_words & _keywords(" ".join(weak_parts))
+        score = len(strong_matches | weak_matches)
+        scored.append((score, listing))
 
     scored.sort(key=lambda pair: pair[0], reverse=True)
     return [listing for _, listing in scored[: config.SEARCH_RESULT_LIMIT]]
