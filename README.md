@@ -328,15 +328,92 @@ that produced it:
 
 ## Loop Trace
 
-<!-- One full run, printed step by step, with the MCP call visible in it.
+One full run, `python app.py ask 'vintage graphic tee under $30' --trace`.
+Produced by `trace.py::step`, called from `agent.py::run_agent`. Step 2 is the
+MCP call, served by `mcp_server.py::search_listings`.
 
-     `python app.py ask '...' --trace` once you've added the trace.step()
-     calls in Milestone 2.
+```
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    10 match(es)
+[3] select_item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[4] suggest_outfit
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: Here are two thrift-fashion styling options built around your new Y2K baby tee, using only the pieces currentl…
+      →    10 wardrobe item(s)
+[5] create_fit_card
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: Scored this butterfly baby tee for just $18.0 on depop and I am officially obsessed. I'm leaning into total 20…
+```
 
-     Worth pasting BOTH the happy path and the empty-search path. The empty
-     one should be visibly shorter, because it stops. If your two traces are
-     the same length, your branch isn't working — and this is the fastest way
-     anyone will ever find that out. -->
+### Failure modes triggered on purpose
+
+**1. Empty search.** `python app.py ask 'designer ballgown size XXS under $5'`.
+The loop stopped at step 3 and never called `suggest_outfit`:
+
+```
+[3] branch
+      →    search returned []: stopping before suggest_outfit
+
+  Nothing in the listings matched description 'designer ballgown', size XXS, under $5.
+Things to change: try broader words — 'jacket' finds more than 'cropped corduroy jacket'; drop the size, or try a neighbouring one; raise the price ceiling above $5.
+```
+
+The message names all three things the user controls and only mentions the size
+and the price ceiling because this query actually set them.
+
+**2. Empty wardrobe.** `python app.py ask 'oversized flannel shirt' --empty-wardrobe`.
+`suggest_outfit` ran with 0 wardrobe items and returned advice rather than
+crashing or returning an empty string:
+
+```
+[4] suggest_outfit
+      →    0 wardrobe item(s)
+
+  **Fit & Color Advice**
+  Since this is an oversized flannel, let it lean into that relaxed, effortless
+  shape. [...] let it be the statement piece of your outfit by keeping the rest
+  of your colors neutral (think black, white, grey, or denim).
+
+  **Thrift-Store Pairing Ideas**
+  * **Bottoms:** A pair of classic straight-leg blue jeans or vintage black denim
+  * **Footwear:** Crisp white sneakers or chunky black combat boots
+```
+
+This matches what my Tool Inventory promised: advice about the item plus generic
+pairing ideas, never claiming the user already owns a piece.
+
+**3. Model unavailable.** I changed one character of `GEMINI_API_KEY` in `.env`
+and ran a query I had not run before, so the cache could not answer it:
+
+```
+[4] model unavailable
+      →    stopping, search results kept
+
+  The model couldn't be reached, so the outfit and caption steps didn't run.
+  The search worked — 5 listing(s) were found. Check GEMINI_API_KEY in your .env,
+  then run the same query again.
+What the service said: The model rejected your API key. Check GEMINI_API_KEY in
+your .env file, or create a fresh key at aistudio.google.com.
+```
+
+**A fourth failure mode I got for free.** While testing the above, Google
+returned a 503. The same handler fired but with a different message:
+
+```
+What the service said: Couldn't reach the model: 503 UNAVAILABLE. {'error':
+{'code': 503, 'message': 'This model is currently experiencing high demand.
+Spikes in demand are usually temporary. Please try again later.'}}
+```
+
+Two causes, two different instructions. One tells the user to fix their key, the
+other tells them to wait. All four stop cleanly, keep the search results, and
+print a sentence rather than a stack trace, so none of them needed a new handler.
 
 **Happy path**
 
