@@ -268,59 +268,124 @@ would have removed the thing I wrote the criterion to catch.
 
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
-
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
+Produced by `run_eval.py::main`, seven scenarios from `scenarios.py`, five tries
+each, caching off. Full output in `results/run_2026-10-07_2143_before.md`.
+60 model calls.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before `suggest_outfit` | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. `selected_item` id reaches `suggest_outfit` | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card names the price and the platform | 5 listings | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. `graphic tee` returns only `tops` | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Criterion 4 is measured across five different listings rather than five tries of
+one, because the criterion is about five listings. Those five come from the
+scenarios in `scenarios.py` tagged `"criterion": 4`, plus the listings selected
+by criteria 1 and 3.
+
+### Real output
+
+**Criterion 1** — `run_eval.py::run_once`, five tries of "vintage graphic tee
+under $30". Every try reached step 5 and produced a different card, so these are
+five real answers and not one cached one:
 
 ```
+try 1: completed — fit card 304 chars
+try 2: completed — fit card 287 chars
+try 3: completed — fit card 280 chars
+try 4: completed — fit card 261 chars
+try 5: completed — fit card 264 chars
+```
 
+**Criterion 2** — same file, "designer ballgown size XXS under $5". The loop
+never reached step 4 on any try:
+
+```
+[2] search_listings (via MCP)
+      out: [] (empty)
+      →    0 match(es)
+[3] branch
+      →    search returned []: stopping before suggest_outfit
+  try 1: stopped early — Nothing in the listings matched description 'designer ballgo
+```
+
+**Criterion 3** — `trace.py::step`, called from `agent.py::run_agent`. I compared
+all 30 `select_item` outputs against the `suggest_outfit` input that followed
+them. Zero mismatches. One pair:
+
+```
+[3] select_item
+      out: Oversized Flannel Shirt — Plaid Red/Black ($22.0, thredUp)
+[4] suggest_outfit
+      in:  Oversized Flannel Shirt — Plaid Red/Black ($22.0, thredUp)
+```
+
+**Criterion 4** — `tools.py::create_fit_card`, five different listings. One card
+each:
+
+```
+Scored this little butterfly tee on depop for just $18.0 and I'm obsessed.
+Scored this oversized red and black flannel on thredUp for just $22.0 and I'm obsessed.
+Scored this vintage navy and white track jacket on Poshmark for $45.
+Scored these rust corduroy wide-leg pants on depop for $32.0 and I am officially obsessed.
+Scored this chunky brown knit on depop for just $35.0 and I am never taking it off.
+```
+
+**Criterion 5** — `tools.py::search_listings`, query "graphic tee". Six listings
+returned, identical on all five tries:
+
+```
+tops       Y2K Baby Tee — Butterfly Print
+tops       Graphic Tee — 2003 Tour Bootleg Style
+tops       Mesh Long-Sleeve Top — Black
+tops       Vintage Band Tee — Faded Grey
+bottoms    Low-Rise Cargo Pants — Khaki      <-- not tops
+tops       Vintage Graphic Hoodie — Faded Black
 ```
 
 ---
 
 ## Verdicts and Diagnoses
 
-<!-- MET or MISSED per criterion against LAST UNIT's target, plus a sentence on
-     how you decided.
+**1. MET (5/5).** Target was 4 of 5. All five tries ran parse, search, select,
+outfit and fit card, and returned a card. The five cards differ in length from
+261 to 304 characters, which is how I know caching was off and these were five
+real model answers.
 
-     Then, for every miss: which of the four places it happened — a tool, the
-     loop's branch, the session, or the model's output — AND the mechanism.
+**2. MET (5/5).** Target was 5 of 5. Every try stopped at the branch in
+`agent.py::run_agent` and the trace shows no step 4 on any of them. This is the
+one path with no model in it, which is why I set 5 of 5 in unit 3.
 
-     Not a diagnosis:  "The fit card was bad."
-     A diagnosis:      "The fit card criterion missed on 2 of 5 items. Both had
-                        an empty brand field. My prompt puts the brand in the
-                        first sentence, so the card opened with a blank and read
-                        like a fragment. The tool worked; the prompt assumed a
-                        field that isn't always there."
+**3. MET (5/5).** Target was 5 of 5. Thirty select-and-style pairs across the
+whole run, zero mismatches. As with criterion 2, this path is plain Python, so
+a mismatch would have been a bug rather than variation.
 
-     Look for a pattern. Three misses on the same tool is one problem, not
-     three. -->
+**4. MET (5/5).** Target was all five listings. Every card names the price and
+the platform. One card wrote "$45" instead of "$45.0", which still states the
+price, so I counted it as a pass.
 
-| # | Criterion | Target | Verdict | How I decided |
-|---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+**5. MISSED (0/5).** Target was 4 of 5. The query "graphic tee" returns
+`Low-Rise Cargo Pants — Khaki`, which is `category: bottoms`.
 
-**Diagnoses**
+**Diagnosis for criterion 5.** The step is the tool, `tools.py::search_listings`.
+The mechanism is that it pools title, description, category, style_tags, colors
+and brand into one bag of words and weights every word the same. My query
+keywords are `{graphic, tee}`. The cargo pants description reads "Great for
+layering with a long tee", so the word "tee" is in the listing as something the
+item pairs *with* rather than something it *is*. That earns it a score of 1,
+enough to clear my "drop anything scoring zero" rule, and nothing downstream
+ever looks at `category`.
+
+Worth saying plainly: this is one failure counted five times, not five separate
+failures. Retrieval has no model in it, so the same query returns the same six
+listings on every run. 0 of 5 is as bad as this criterion can score and it tells
+me the same thing 1 of 5 would.
+
+No pattern across misses, because there is only one miss. The four METs all came
+out at target or above, which I would be more worried about if criterion 5 had
+not failed.
 
 
 
