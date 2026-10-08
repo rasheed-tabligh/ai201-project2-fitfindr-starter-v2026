@@ -15,38 +15,55 @@ own criteria need — these are a starting point, not a fixed set.
 
 SCENARIOS = [
     {
-        # A query the data can match. Criterion 1.
+        # Criterion 1 — the full three-tool run.
         "name": "matching query completes",
         "query": "vintage graphic tee under $30",
         "wardrobe": "example",
         "criterion": 1,
     },
     {
-        # A query nothing can match. Criterion 2 — the branch.
+        # Criterion 2 — the branch. Costs no model calls; the gate stops it.
         "name": "impossible query stops early",
         "query": "designer ballgown size XXS under $5",
         "wardrobe": "example",
         "criterion": 2,
     },
     {
-        # A user with nothing saved. One of unit 4's three failure modes.
-        "name": "empty wardrobe",
-        "query": "denim jacket under $50",
-        "wardrobe": "empty",
-        "criterion": None,
+        # Criterion 3 — state. Any normal query works; what matters is whether
+        # the id in session["selected_item"] matches the item suggest_outfit got.
+        "name": "state: selected item reaches suggest_outfit",
+        "query": "oversized flannel shirt",
+        "wardrobe": "example",
+        "criterion": 3,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
-    #
-    # Set "criterion" to the number in criteria.md that the scenario tests.
-    # "criterion": None means a diagnostic run — useful to have, but it isn't
-    # one of your five, and run_eval.py marks it as such in the table.
-    #
-    # For a state criterion, any normal query works — what you're checking is
-    # what ends up in the session, not what the user typed.
-    #
-    # For a fit-card criterion, you probably want the SAME query listed more
-    # than once, or several different items, depending on what your criterion
-    # actually says.
+    # Criterion 4 — five DIFFERENT listings, because the criterion is about
+    # five listings rather than five tries of one. Scenarios 1 and 3 above give
+    # two of them (Y2K Baby Tee, Oversized Flannel); these give the other three.
+    {
+        "name": "fit card: track jacket",
+        "query": "90s track jacket",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        "name": "fit card: corduroy pants",
+        "query": "corduroy wide leg pants under $40",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        "name": "fit card: knit cardigan",
+        "query": "chunky knit cardigan",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # Criterion 5 — every returned listing should be category 'tops'.
+        "name": "category: graphic tee returns tops only",
+        "query": "graphic tee",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
 ]
 
 WARDROBES = ("example", "empty")
